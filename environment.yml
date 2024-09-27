@@ -11,6 +11,7 @@ dependencies:
   - pip
   - seaborn
   - h5py
-  - pymmcore
+  - pymmcore=10.1
   - pyserial
+  - pytables
   

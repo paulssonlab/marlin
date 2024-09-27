@@ -5,7 +5,7 @@ from time import sleep
 from .scheduler import wait_for
 
 class handlerCore:
-    def __init__(self,handshakes=2,default_state="PFA(half-MeAc)"):
+    def __init__(self,handshakes=2,default_state="PFA(half-MeAc)",comport=None):
         self.valvestate = 0
         self.pumpstate = 0
         self.titanxstates = [0 for i in range(5)]
@@ -23,7 +23,7 @@ class handlerCore:
         self.titanx_states_inv = {tuple(val):key for key,val in self.titanx_states.items()}
         self.stage_valve_state_dict = {0:'Stage',1:'Waste'}
         
-        self.connect()
+        self.connect(comport=comport)
         self.set_valve_state(default_state,0)
         self.set_pump_state(0)
         print("Handler Ready.")
