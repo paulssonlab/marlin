@@ -28,7 +28,7 @@ class handlerCore:
         self.set_pump_state(0)
         print("Handler Ready.")
         
-    def get_heartbeat(self,comport,connect_code="MARLIN",timeout=10.):
+    def get_heartbeat(self,comport,connect_code=b"MARLIN",timeout=10.):
         try:
             ti = time.time()
             no_timeout = True
@@ -43,15 +43,19 @@ class handlerCore:
                 elif t_elapsed>timeout:
                     no_timeout = False
             s.close()
-            if returnedstr == "MARLIN":
+            if returnedstr == connect_code:
                 return True
             else:
                 return False
         except (OSError, serial.SerialException):
             return False 
         
-    def connect(self,connect_code="MARLIN",timeout=10.):
-        ports = ['COM%s' % (i + 1) for i in range(256)]
+    def connect(self,comport=None,connect_code=b"MARLIN",timeout=10.):
+        if comport == None:
+            ports = ['COM%s' % (i + 1) for i in range(256)]
+        else:
+            ports = [comport]
+            
         result = []
         for port in ports:
             heartbeat = self.get_heartbeat(port,connect_code=connect_code,timeout=timeout)
@@ -72,14 +76,13 @@ class handlerCore:
                     no_timeout = False
                 elif t_elapsed>timeout:
                     no_timeout = False
-            if returnedstr == "MARLIN":
+            if returnedstr == connect_code:
                 self.serial_handle.timeout = 10.
                 print("Connected.")
             else:
                 raise ValueError("MARLIN connection timeout.")
         else:
             raise ValueError("More than one MARLIN detected.")
-        
         
     def updatestate(self,valvestate,pumpstate,titanxstates):
         self.valvestate = valvestate
@@ -92,7 +95,7 @@ class handlerCore:
         pump_state_string = str(pump_state_voltage)
         pump_state_perc = str(int((pump_state_voltage/5.)*100))
 
-        print valve_name_str + " flowing to " + stage_valve_state_str + " at " + pump_state_string + " Volts (" + pump_state_perc + "%)"
+        print(valve_name_str + " flowing to " + stage_valve_state_str + " at " + pump_state_string + " Volts (" + pump_state_perc + "%)")
         
         
     def sendstate(self,valvestate,pumpstate,titanxstates):
@@ -128,10 +131,9 @@ class handlerCore:
             returnedstr = self.serial_handle.read_until()[:-1]
             self.serial_handle.reset_output_buffer()
             self.serial_handle.reset_input_buffer()
-            checkstr = "[" + ",".join([str(state) for state in self.titanxstates]) + "];" + str(self.valvestate) + ";" + str(self.pumpstate)
-            returned_state_string = returnedstr.strip()
-            
-            if returned_state_string == checkstr:
+            checkstr = ("[" + ",".join([str(state) for state in self.titanxstates]) + "];" + str(self.valvestate) + ";" + str(self.pumpstate)).encode("utf8")
+
+            if returnedstr.strip() == checkstr.strip():
                 no_handshake = False
             handshake_attempts += 1
             if handshake_attempts >= self.handshakes:

@@ -1,3 +1,4 @@
+import os
 from time import sleep
 import h5py
 
@@ -31,7 +32,7 @@ class FISH_scheduler:
         self.output_folder = output_folder
             
     def load_reagent(self,reagent_name,load_rate=None):
-        print reagent_name
+        print(reagent_name)
         
         self.handlerInstance.set_pump_state(0)
         self.handlerInstance.set_valve_state(reagent_name,1)
@@ -55,14 +56,14 @@ class FISH_scheduler:
         
     def init_fixation(self):
         self.load_reagent("PFA(half-MeAc)",load_rate=self.fixation_load_rate_scaling)
-        print "Initialized."
+        print("Initialized.")
         
     def continue_fixation(self):
         self.load_reagent("EtOH(MeAc)",load_rate=self.fixation_load_rate_scaling)
         self.handlerInstance.set_pump_state(self.slow_speed)
         wait_for(45*60)
         self.load_reagent("PFA(half-MeAc)",load_rate=self.fixation_load_rate_scaling)
-        print "Fixed."
+        print("Fixed.")
         
     def perform_cycle(self,cycle_num,no_cleave=False):
         reagent_name = "Probe " + str(cycle_num)
@@ -78,7 +79,9 @@ class FISH_scheduler:
         wait_for(5*60)
         self.handlerInstance.set_pump_state(self.slow_speed)
         
-    def run(self,grid_coords=None,num_cycles=8):
+    def run(self,grid_coords=None,num_cycles=10):
+        if not os.path.exists(self.output_folder):
+            os.makedir(self.output_folder)
         
         if not self.skip_fixation:
         
@@ -115,7 +118,7 @@ class FISH_scheduler:
                 self.perform_cycle(c)
             
             if not self.no_scope:
-                print "Imageing..."
+                print("Imageing...")
 
                 self.scopeInstance.multipoint_aq(grid_coords,self.channels,c,output_folder=self.output_folder)
                 

@@ -1,21 +1,54 @@
 import numpy as np
 import pandas as pd
 import matplotlib
-import MMCorePy
+import pymmcore
 from IPython.display import clear_output
 from time import sleep
 import matplotlib.pyplot as plt
 import time
-
+import xml.etree.ElementTree as ET
 import h5py
 
-def fetch_multipoints(multipoints_path,scaling=1000.):
-    with open(multipoints_path,"r") as infile:
-        coords = infile.read()
-    coords = coords.split("\n")[:-1]
-    coords = [tuple(float(item)*scaling for item in coord.split(";")) for coord in coords]
+def load_multipoints(multipoints_path,filetype="auto"):
+    if filetype=="auto":
+        file_suffix = multipoints_path[-3:]
+    else:
+        file_suffix = filetype
+    if file_suffix=="csv":
+        positions = load_csv_multipoints(multipoints_path)
+    elif file_suffix=="xml":
+        positions = load_xml_multipoints(multipoints_path)
+    else:
+        raise ValueError('Filetype not recognized')
+    return positions
 
-    return coords
+def load_csv_multipoints(multipoints_path,scaling=1000.):
+    with open(multipoints_path,"r") as infile:
+        positions = infile.read()
+    positions = positions.split("\n")[:-1]
+    positions = [tuple(float(item)*scaling for item in position.split(";")) for position in positions]
+
+    return positions
+
+def parse_xml_position(e):
+    return dict(
+        name=e.find("strName").attrib["value"],
+        checked=(e.find("bChecked").attrib["value"].lower() != "false"),
+        x=float(e.find("dXPosition").attrib["value"]),
+        y=float(e.find("dYPosition").attrib["value"]),
+        z=float(e.find("dZPosition").attrib["value"]),
+        pfs_offset=float(e.find("dPFSOffset").attrib["value"]),
+    )
+
+def load_xml_multipoints(filename):
+    positions = []
+    with open(filename, encoding="utf-16") as input:
+        input_xml = ET.parse(input, parser=ET.XMLParser(encoding="utf-16"))
+    for e in input_xml.findall("./no_name/*"):
+        if e.tag not in ("bIncludeZ", "bPFSEnabled"):
+            p = parse_xml_position(e)
+            positions.append((p["x"], p["y"]))
+    return positions
 
 def check_grid_corners(scopeInstance,xy_grid,shift_tol=100,wait_time=0):
     xy_grid_arr = np.array(xy_grid)
@@ -37,7 +70,7 @@ def check_grid_corners(scopeInstance,xy_grid,shift_tol=100,wait_time=0):
 
 class scopeCore:
     def __init__(self,configpath,logpath,camera_name="BSI Prime",shutter_name="SpectraIII",xystage_name="XYStage",focus_name="ZDrive",fish_channel_group="FISH_channels"):
-        self.mmc = MMCorePy.CMMCore()
+        self.mmc = pymmcore.CMMCore()
         self.mmc.loadSystemConfiguration(configpath)
         self.mmc.setPrimaryLogFile(logpath)
         self.mmc.setCameraDevice(camera_name)
@@ -46,10 +79,7 @@ class scopeCore:
         self.shutter_name = shutter_name
         self.xystage_name = xystage_name
         self.focus_name = focus_name
-        
-        first_channel_name = self.mmc.getAvailableConfigs(fish_channel_group)[0]
-        self.mmc.setConfig(fish_channel_group,first_channel_name)
-    
+
     def snap_image(self,img_size=(12,12)):
         self.mmc.snapImage()
         im1 = self.mmc.getImage()

@@ -1,0 +1,16 @@
+name: marlin
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - jupyterlab
+  - matplotlib
+  - nodejs
+  - numpy
+  - pandas
+  - pip
+  - seaborn
+  - h5py
+  - pymmcore
+  - pyserial
+  
