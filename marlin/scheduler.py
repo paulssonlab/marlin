@@ -8,20 +8,18 @@ def wait_for(num_secs):
         sleep(1.)
 
 class FISH_scheduler:
-    def __init__(self,handlerInstance,scopeInstance=None,skip_fixation=False,fast_speed=2000,medium_speed=300,slow_speed=100,\
-                 mins_fast_speed=4.,mins_medium_speed=5.,probe_load_rate_scaling=0.5,fixation_load_rate_scaling=1.,\
-                 channels=["BF","GFP","Cy5","Cy7"],output_folder="./"):
+    def __init__(self,handlerInstance,scopeInstance=None,skip_fixation=False,include_wash_cycle=False,fast_speed=2000,medium_speed=300,slow_speed=100,\
+                 mins_fast_speed=4.,mins_medium_speed=5.,channels=["BF","GFP","Cy5","Cy7"],output_folder="./"):
         self.handlerInstance = handlerInstance
         self.scopeInstance = scopeInstance
         self.skip_fixation = skip_fixation
+        self.include_wash_cycle = include_wash_cycle
         self.fast_speed = fast_speed
         self.medium_speed = medium_speed
         self.slow_speed = slow_speed
         
         self.secs_fast_speed = int(mins_fast_speed*60)
         self.secs_medium_speed = int(mins_medium_speed*60)
-        self.probe_load_rate_scaling = probe_load_rate_scaling
-        self.fixation_load_rate_scaling = fixation_load_rate_scaling
         
         if scopeInstance is None:
             self.no_scope = True
@@ -31,7 +29,7 @@ class FISH_scheduler:
         self.channels = channels                                          
         self.output_folder = output_folder
             
-    def load_reagent(self,reagent_name,load_rate=None):
+    def load_reagent(self,reagent_name):
         print(reagent_name)
         
         self.handlerInstance.set_pump_state(0)
@@ -39,30 +37,22 @@ class FISH_scheduler:
         self.handlerInstance.set_pump_state(self.fast_speed)
         
         wait_for(self.secs_fast_speed)
-        
-        if load_rate is None:
-            self.handlerInstance.set_pump_state(self.medium_speed)
-            self.handlerInstance.set_valve_state(reagent_name,0)
+    
+        self.handlerInstance.set_pump_state(self.medium_speed)
+        self.handlerInstance.set_valve_state(reagent_name,0)
 
-            wait_for(self.secs_medium_speed)
-        
-        else:
-            self.handlerInstance.set_pump_state(int(load_rate*self.medium_speed))
-            self.handlerInstance.set_valve_state(reagent_name,0)
-            
-            wait_for(self.secs_medium_speed/load_rate)
-            
+        wait_for(self.secs_medium_speed)
         return True
         
     def init_fixation(self):
-        self.load_reagent("PFA(half-MeAc)",load_rate=self.fixation_load_rate_scaling)
+        self.load_reagent("PFA(half-MeAc)")
         print("Initialized.")
         
     def continue_fixation(self):
-        self.load_reagent("EtOH(MeAc)",load_rate=self.fixation_load_rate_scaling)
+        self.load_reagent("EtOH(MeAc)")
         self.handlerInstance.set_pump_state(self.slow_speed)
         wait_for(45*60)
-        self.load_reagent("PFA(half-MeAc)",load_rate=self.fixation_load_rate_scaling)
+        self.load_reagent("PFA(half-MeAc)")
         print("Fixed.")
         
     def perform_cycle(self,cycle_num,no_cleave=False):
@@ -71,11 +61,16 @@ class FISH_scheduler:
         if not no_cleave:
             self.load_reagent("Cleave")
             wait_for(10*60)
+
+        if self.include_wash_cycle:
+            self.load_reagent("SSC")
+            self.handlerInstance.set_pump_state(self.slow_speed)
+            self.wait_for(3*60)
             
-        self.load_reagent(reagent_name,load_rate=self.probe_load_rate_scaling)
+        self.load_reagent(reagent_name)
         self.handlerInstance.set_pump_state(self.slow_speed)
         wait_for(30*60)
-        self.load_reagent("Image",load_rate=self.probe_load_rate_scaling)
+        self.load_reagent("Image")
         wait_for(5*60)
         self.handlerInstance.set_pump_state(self.slow_speed)
         
